@@ -19,11 +19,9 @@ func main()  {
     flag.Parse()
     fmt.Print(*cluster, *id, *kvport, *join)
 
-    // 创建发送channel
     proposeC := make(chan string)
     defer close(proposeC)
 
-    // 创建ConfChange channel
     confChangeC := make(chan raftpb.ConfChange)
     defer close(confChangeC)
 
@@ -32,9 +30,10 @@ func main()  {
     // 包装一下函数,包外访问不到
     getSnapshot := func() ([]byte, error) { return kvs.getSnapshot() }
 
-    // 创建raft节点
+    // 创建raft节点, proposeC/confChangeC的接收端
     commitC, errorC, snapshotterReady := newRaftNode(*id, strings.Split(*cluster, ","), *join, getSnapshot, proposeC, confChangeC)
 
+    // proposeC 发送端 commitC接收端
     kvs = newKVStore(<-snapshotterReady, proposeC, commitC, errorC)
 
     // 启动动http api服务器,处理发送到的raft请求
