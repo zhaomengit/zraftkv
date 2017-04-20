@@ -114,6 +114,18 @@ func (rc *raftNode) startRaft() {
 	go rc.serveChannels()
 }
 
+func (rc *raftNode) serveRaft()  {
+
+}
+
+func (rc *raftNode) serveChannels()  {
+
+}
+
+func (rc *raftNode) replayWAL()  *wal.WAL {
+	return nil
+}
+
 func (rc *raftNode) Process(ctx context.Context, m raftpb.Message) error {
     return rc.node.Step(ctx, m)
 }
