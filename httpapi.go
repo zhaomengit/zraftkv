@@ -30,6 +30,15 @@ func (h *httpKVAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.store.Propose(key, string(v))
 		w.WriteHeader(http.StatusNoContent)
 
+	case r.Method == "GET":
+
+		// get从store的map中查找key
+		if v, ok := h.store.Lookup(key); ok {
+			w.Write([]byte(v))
+		} else {
+			http.Error(w, "Failed to GET", http.StatusNotFound)
+		}
+
 	case r.Method == "POST": // 增加节点
 
 		url, err := ioutil.ReadAll(r.Body)
@@ -55,14 +64,6 @@ func (h *httpKVAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.confChangeC <- cc
 
 		w.WriteHeader(http.StatusNoContent)
-	case r.Method == "GET":
-
-		// get从store的map中查找key
-		if v, ok := h.store.Lookup(key); ok {
-			w.Write([]byte(v))
-		} else {
-			http.Error(w, "Failed to GET", http.StatusNotFound)
-		}
 
 	case r.Method == "DELETE": // 删除节点
 
@@ -105,7 +106,14 @@ func serveHttpKVAPI(kv *kvstore, port int, confChangeC chan<- raftpb.ConfChange,
 		},
 	}
 
-	if err := srv.ListenAndServe(); err != nil {
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// raft失败就退出
+	if err, ok := <-errorC; ok {
 		log.Fatal(err)
 	}
 
