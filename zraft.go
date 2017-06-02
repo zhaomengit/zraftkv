@@ -188,7 +188,7 @@ func (rc *raftNode) loadSnapshot() *raftpb.Snapshot {
 	return snapshot
 }
 
-// openWAL returns a WAL ready for reading.
+// openWAL 返回 已经准备好可以记录日志的WAL
 func (rc *raftNode) openWAL(snapshot *raftpb.Snapshot) *wal.WAL {
 	if !wal.Exist(rc.waldir) {
 		if err := os.Mkdir(rc.waldir, 0750); err != nil {
@@ -220,7 +220,8 @@ func (rc *raftNode) replayWAL() *wal.WAL {
 	log.Printf("replaying WAL of member %d", rc.id)
 	snapshot := rc.loadSnapshot()
 	w := rc.openWAL(snapshot)
-	_, st, ents, err := w.ReadAll()
+    // ReadAll 之后 WAL 就可以接收新的日志记录了
+	_, st, ents, err := w.ReadAll() // 获取所有日志条目
 	if err != nil {
 		log.Fatalf("zraftkv: failed to read WAL (%v)", err)
 	}
@@ -258,9 +259,12 @@ func (rc *raftNode) startRaft() {
 			log.Fatalf("zraftkv: cannot create dir for snapshot (%v)", err)
 		}
 	}
+
+	// 以rc.snapdir创建一个Snapshotter,然后通知snapshotterReady
 	rc.snapshotter = snap.New(rc.snapdir)
 	rc.snapshotterReady <- rc.snapshotter
 
+    // 首次启动没有旧的wal, oldwal false
 	oldwal := wal.Exist(rc.waldir)
 	rc.wal = rc.replayWAL()
 
@@ -378,9 +382,9 @@ func (rc *raftNode) serveChannels() {
 	if err != nil {
 		panic(err)
 	}
-	rc.confState = snap.Metadata.ConfState
-	rc.snapshotIndex = snap.Metadata.Index
-	rc.appliedIndex = snap.Metadata.Index
+	rc.confState = snap.Metadata.ConfState  // 配置
+	rc.snapshotIndex = snap.Metadata.Index  //
+	rc.appliedIndex = snap.Metadata.Index   // 已经应用的id
 
 	defer rc.wal.Close()
 
@@ -397,7 +401,7 @@ func (rc *raftNode) serveChannels() {
 				if !ok {
 					rc.proposeC = nil
 				} else {
-					// blocks until accepted by raft state machine
+                    // 阻塞 直到被raft状态及接受
 					rc.node.Propose(context.TODO(), []byte(prop))
 				}
 
@@ -451,6 +455,7 @@ func (rc *raftNode) serveChannels() {
 	}
 }
 
+// 增加一个停止channel
 func (rc *raftNode) serveRaft() {
 	url, err := url.Parse(rc.peers[rc.id-1])
 	if err != nil {
